@@ -6,7 +6,7 @@ A bidirectional LSTM with attention that classifies IMDB movie reviews as positi
 
 - **Data:** the IMDB dataset (25,000 training and 25,000 test reviews) from Hugging Face `datasets`. 10 % of the training set is held out for validation.
 - **Tokenising:** reviews are split into word pieces with the `bert-base-uncased` tokenizer and cut to 300 tokens. Only the tokenizer is borrowed; the model itself is trained from scratch.
-- **Augmentation:** each training review has about 10 % of its words randomly deleted, so the model can't lean on any single word.
+- **Augmentation:** each training review has about 10 % of its words randomly deleted. This discourages the model from relying too heavily on any single word.
 - **Model:** an embedding layer feeds a 2-layer bidirectional LSTM. An attention layer then weighs each word's importance, and a small classifier with dropout produces the final positive/negative score.
 - **Training:** Adam, batch size 64, up to 20 epochs. Training stops early when validation accuracy hasn't improved for 2 epochs. The best checkpoint is then scored once on the test set.
 
