@@ -143,8 +143,10 @@ epochs_without_improvement = 0
 for epoch in range(EPOCHS):
     print(f"\nEpoch {epoch+1}/{EPOCHS}")
     loss = train_epoch()
-    acc = evaluate(test_loader)
-    print(f"Loss = {loss:.4f}, Test Accuracy = {acc*100:.2f}%")
+    # Model selection and early stopping use the validation split only, so
+    # the test set stays unseen until the single evaluation at the end
+    acc = evaluate(val_loader)
+    print(f"Loss = {loss:.4f}, Validation Accuracy = {acc*100:.2f}%")
 
     if acc > best_acc:
         best_acc = acc
@@ -153,20 +155,19 @@ for epoch in range(EPOCHS):
         print(f"📦 Best model saved at accuracy: {best_acc*100:.2f}%")
     else:
         epochs_without_improvement += 1
-        print(f"⚠️ Accuracy dropped. Patience: {epochs_without_improvement}/{PATIENCE}")
-
-    if acc >= 0.8861:
-        print("✅ Target accuracy reached.")
-        break
+        print(f"⚠️ No improvement. Patience: {epochs_without_improvement}/{PATIENCE}")
 
     if epochs_without_improvement >= PATIENCE:
-        print("🛑 Early stopping: test accuracy didn't improve.")
+        print("🛑 Early stopping: validation accuracy didn't improve.")
         break
 
-# ====== Load Best Model After Training (Optional) ======
+# ====== Load Best Model and Evaluate Once on the Test Set ======
 if os.path.exists(BEST_MODEL_PATH):
-    model.load_state_dict(torch.load(BEST_MODEL_PATH))
+    model.load_state_dict(torch.load(BEST_MODEL_PATH, map_location=DEVICE,
+                                     weights_only=True))
     print("✅ Best model reloaded from disk.")
+test_acc = evaluate(test_loader)
+print(f"🧪 Test Accuracy = {test_acc*100:.2f}%")
 
 
 def predict_sentiment(text):
@@ -174,10 +175,10 @@ def predict_sentiment(text):
     tokens = tokenizer.encode(text, truncation=True, max_length=MAX_LENGTH)
     tensor = torch.tensor(tokens).unsqueeze(0).to(DEVICE)  # shape: [1, seq_len]
     with torch.no_grad():
-        output = model(tensor).item()
-        prob = torch.sigmoid(torch.tensor(output)).item()
-        label = "🟢 Positive" if prob >= 0.6 else "🔴 Negative"
-        print(f"\nReview: {text}\nSentiment: {label} (Confidence: {prob*100:.2f}%)")
+        prob = model(tensor).item()  # the model already ends in a sigmoid
+        label = "🟢 Positive" if prob >= 0.5 else "🔴 Negative"
+        confidence = prob if prob >= 0.5 else 1 - prob
+        print(f"\nReview: {text}\nSentiment: {label} (Confidence: {confidence*100:.2f}%)")
 while True:
     user_input = input("\nEnter a movie review (or type 'exit'): ")
     if user_input.lower() == "exit":
